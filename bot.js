@@ -101,9 +101,7 @@ bot.use((ctx, next) => {
 Actualmente estoy descansando 🛌
 Volveré a atenderte a las *${horaApertura}*.
 
-⏰ *Horario:* ${formatoHorario()}
-
-💡 *Emergencia:* escribí /24h para activarlo por ${CONFIG.DURACION_EMERGENCIA} minutos`,
+⏰ *Horario:* ${formatoHorario()}`,
     { parse_mode: 'Markdown' }
   );
 });
@@ -155,8 +153,6 @@ bot.help((ctx) => {
 Comandos:
 /menu — Muestra el menú principal
 /cancelar — Cancela la operación actual
-/24h — Activa el bot fuera de horario (${CONFIG.DURACION_EMERGENCIA} min)
-/cancelar24h — Desactiva el modo emergencia
 
 ⏰ *Horario:* ${formatoHorario()}`, { parse_mode: 'Markdown' });
 });
