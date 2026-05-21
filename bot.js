@@ -24,12 +24,22 @@ console.log("Cliente de Supabase inicializado.");
 const CONFIG = {
   ACTIVO_DESDE: 8,
   ACTIVO_HASTA: 24,
+  ZONA_HORARIA: 'America/Bogota',
 };
 const INTERVALO_PING = 10 * 60 * 1000;
 const BOT_URL = 'https://telegram-bot-sneakers.onrender.com';
 
+function horaLocal() {
+  return parseInt(
+    new Intl.DateTimeFormat('es-CO', {
+      hour: 'numeric', hour12: false,
+      timeZone: CONFIG.ZONA_HORARIA
+    }).format(new Date())
+  );
+}
+
 function estaEnHorario() {
-  const hora = new Date().getHours();
+  const hora = horaLocal();
   if (CONFIG.ACTIVO_DESDE < CONFIG.ACTIVO_HASTA) {
     return hora >= CONFIG.ACTIVO_DESDE && hora < CONFIG.ACTIVO_HASTA;
   }
@@ -37,14 +47,9 @@ function estaEnHorario() {
 }
 
 function formatoHorario() {
-  const d = new Date();
-  d.setHours(CONFIG.ACTIVO_DESDE, 0, 0, 0);
-  const desde = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  d.setHours(CONFIG.ACTIVO_HASTA === 24 ? 0 : CONFIG.ACTIVO_HASTA, 0, 0, 0);
-  const hasta = CONFIG.ACTIVO_HASTA === 24
-    ? '12:00 AM'
-    : d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
-  return `${desde} a ${hasta}`;
+  const desde = `${CONFIG.ACTIVO_DESDE}:00`;
+  const hasta = CONFIG.ACTIVO_HASTA === 24 ? '12:00 AM' : `${CONFIG.ACTIVO_HASTA}:00`;
+  return `${desde} a ${hasta} (hora ${CONFIG.ZONA_HORARIA})`;
 }
 
 const MENU = `🤖 *Bot Sneakers — Menú*
@@ -68,11 +73,12 @@ bot.use((ctx, next) => {
 
 bot.use((ctx, next) => {
   if (!estaEnHorario()) {
+    const horaApertura = `${CONFIG.ACTIVO_DESDE}:00`;
     return ctx.reply(
       `😴 *Bot fuera de horario*
 
 Actualmente estoy descansando 🛌
-Volveré a atenderte a las *${new Date(new Date().setHours(CONFIG.ACTIVO_DESDE, 0, 0, 0)).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}*.
+Volveré a atenderte a las *${horaApertura}*.
 
 ⏰ *Horario:* ${formatoHorario()}`,
       { parse_mode: 'Markdown' }
