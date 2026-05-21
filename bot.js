@@ -24,7 +24,7 @@ console.log("Cliente de Supabase inicializado.");
 const CONFIG = {
   ACTIVO_DESDE: 8,
   ACTIVO_HASTA: 24,
-  ZONA_HORARIA: 'America/Bogota',
+  ZONA_HORARIA: 'America/Lima',
 };
 const INTERVALO_PING = 10 * 60 * 1000;
 const BOT_URL = 'https://telegram-bot-sneakers.onrender.com';
