@@ -21,6 +21,32 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 const STORAGE_BUCKET = 'sneakers';
 console.log("Cliente de Supabase inicializado.");
 
+const CONFIG = {
+  ACTIVO_DESDE: 8,
+  ACTIVO_HASTA: 24,
+};
+const INTERVALO_PING = 10 * 60 * 1000;
+const BOT_URL = 'https://telegram-bot-sneakers.onrender.com';
+
+function estaEnHorario() {
+  const hora = new Date().getHours();
+  if (CONFIG.ACTIVO_DESDE < CONFIG.ACTIVO_HASTA) {
+    return hora >= CONFIG.ACTIVO_DESDE && hora < CONFIG.ACTIVO_HASTA;
+  }
+  return hora >= CONFIG.ACTIVO_DESDE || hora < CONFIG.ACTIVO_HASTA;
+}
+
+function formatoHorario() {
+  const d = new Date();
+  d.setHours(CONFIG.ACTIVO_DESDE, 0, 0, 0);
+  const desde = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  d.setHours(CONFIG.ACTIVO_HASTA === 24 ? 0 : CONFIG.ACTIVO_HASTA, 0, 0, 0);
+  const hasta = CONFIG.ACTIVO_HASTA === 24
+    ? '12:00 AM'
+    : d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+  return `${desde} a ${hasta}`;
+}
+
 const MENU = `🤖 *Bot Sneakers — Menú*
 
 1️⃣ *Registrar venta* — Modelo, talla y precio
@@ -38,6 +64,21 @@ bot.use((ctx, next) => {
     if (!ctx.session.estado) ctx.session.estado = 'IDLE';
     if (!ctx.session.datos) ctx.session.datos = {};
     return next();
+});
+
+bot.use((ctx, next) => {
+  if (!estaEnHorario()) {
+    return ctx.reply(
+      `😴 *Bot fuera de horario*
+
+Actualmente estoy descansando 🛌
+Volveré a atenderte a las *${new Date(new Date().setHours(CONFIG.ACTIVO_DESDE, 0, 0, 0)).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })}*.
+
+⏰ *Horario:* ${formatoHorario()}`,
+      { parse_mode: 'Markdown' }
+    );
+  }
+  return next();
 });
 
 async function guardarEnSupabase(remitente, contenido, imagenUrl = null) {
@@ -70,7 +111,11 @@ function formatearFecha(iso) {
 bot.start((ctx) => {
     ctx.session.estado = 'IDLE';
     ctx.session.datos = {};
-    ctx.reply(`👋 ¡Bienvenido al *Bot Sneakers*!\n\n` + MENU, { parse_mode: 'Markdown' });
+    ctx.reply(`👋 ¡Bienvenido al *Bot Sneakers*!
+
+⏰ *Horario:* ${formatoHorario()}
+
+` + MENU, { parse_mode: 'Markdown' });
 });
 
 bot.help((ctx) => {
@@ -304,6 +349,16 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+async function autoPing() {
+  if (!estaEnHorario()) return;
+  try {
+    await fetch(BOT_URL);
+    console.log(`[Keepalive] OK - ${new Date().toLocaleTimeString()}`);
+  } catch (err) {
+    console.error(`[Keepalive] Error: ${err.message}`);
+  }
+}
+
 server.listen(PORT, async () => {
   console.log(`Servidor HTTP escuchando en puerto ${PORT}`);
   try {
@@ -312,4 +367,7 @@ server.listen(PORT, async () => {
   } catch (err) {
     console.error(`Error al configurar webhook: ${err}`);
   }
+  await autoPing();
+  setInterval(autoPing, INTERVALO_PING);
+  console.log(`Auto-ping cada 10 min activado (${formatoHorario()})`);
 });
