@@ -283,16 +283,33 @@ bot.catch((err, ctx) => {
 });
 
 const PORT = process.env.PORT || 10000;
-const server = http.createServer((req, res) => {
-  res.writeHead(200, { 'Content-Type': 'text/plain' });
-  res.end('OK');
+const WEBHOOK_PATH = '/telegraf';
+const WEBHOOK_URL = process.env.RENDER_EXTERNAL_URL
+  ? `${process.env.RENDER_EXTERNAL_URL}${WEBHOOK_PATH}`
+  : `https://telegram-bot-sneakers.onrender.com${WEBHOOK_PATH}`;
+
+const webhookHandler = bot.webhookCallback(WEBHOOK_PATH);
+
+const server = http.createServer(async (req, res) => {
+  if (req.method === 'POST' && req.url === WEBHOOK_PATH) {
+    let body = '';
+    req.on('data', chunk => body += chunk);
+    req.on('end', () => {
+      req.body = JSON.parse(body);
+      webhookHandler(req, res);
+    });
+  } else {
+    res.writeHead(200, { 'Content-Type': 'text/plain' });
+    res.end('OK');
+  }
 });
-server.listen(PORT, () => {
+
+server.listen(PORT, async () => {
   console.log(`Servidor HTTP escuchando en puerto ${PORT}`);
+  try {
+    await bot.telegram.setWebhook(WEBHOOK_URL);
+    console.log(`Webhook configurado: ${WEBHOOK_URL}`);
+  } catch (err) {
+    console.error(`Error al configurar webhook: ${err}`);
+  }
 });
-
-console.log("Iniciando Bot de Telegram...");
-bot.launch();
-
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));

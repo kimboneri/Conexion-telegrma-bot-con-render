@@ -2,7 +2,7 @@ services:
   - type: web
     name: telegram-bot-sneakers
     runtime: node
-    repo: https://github.com/TU_USUARIO/TU_REPO
+    repo: https://github.com/kimboneri/Conexion-telegrma-bot-con-render
     plan: free
     branch: main
     buildCommand: npm install
