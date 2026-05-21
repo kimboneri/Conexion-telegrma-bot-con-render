@@ -25,9 +25,11 @@ const CONFIG = {
   ACTIVO_DESDE: 8,
   ACTIVO_HASTA: 24,
   ZONA_HORARIA: 'America/Lima',
+  DURACION_EMERGENCIA: 120,
 };
 const INTERVALO_PING = 10 * 60 * 1000;
 const BOT_URL = 'https://telegram-bot-sneakers.onrender.com';
+let modo24hHasta = null;
 
 function horaLocal() {
   return parseInt(
@@ -52,6 +54,23 @@ function formatoHorario() {
   return `${desde} a ${hasta} (hora ${CONFIG.ZONA_HORARIA})`;
 }
 
+function enModoEmergencia() {
+  return modo24hHasta !== null && Date.now() < modo24hHasta;
+}
+
+function tiempoRestanteEmergencia() {
+  if (!enModoEmergencia()) return 0;
+  return Math.round((modo24hHasta - Date.now()) / 60000);
+}
+
+function mensajeEmergencia() {
+  if (!enModoEmergencia()) return '';
+  const mins = tiempoRestanteEmergencia();
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `\n\n⚡ *Modo emergencia activo* — quedan ${h > 0 ? `${h}h ` : ''}${m}min`;
+}
+
 const MENU = `🤖 *Bot Sneakers — Menú*
 
 1️⃣ *Registrar venta* — Modelo, talla y precio
@@ -72,19 +91,21 @@ bot.use((ctx, next) => {
 });
 
 bot.use((ctx, next) => {
-  if (!estaEnHorario()) {
-    const horaApertura = `${CONFIG.ACTIVO_DESDE}:00`;
-    return ctx.reply(
-      `😴 *Bot fuera de horario*
+  if (enModoEmergencia() || estaEnHorario()) {
+    return next();
+  }
+  const horaApertura = `${CONFIG.ACTIVO_DESDE}:00`;
+  return ctx.reply(
+    `😴 *Bot fuera de horario*
 
 Actualmente estoy descansando 🛌
 Volveré a atenderte a las *${horaApertura}*.
 
-⏰ *Horario:* ${formatoHorario()}`,
-      { parse_mode: 'Markdown' }
-    );
-  }
-  return next();
+⏰ *Horario:* ${formatoHorario()}
+
+💡 *Emergencia:* escribí /24h para activarlo por ${CONFIG.DURACION_EMERGENCIA} minutos`,
+    { parse_mode: 'Markdown' }
+  );
 });
 
 async function guardarEnSupabase(remitente, contenido, imagenUrl = null) {
@@ -133,7 +154,11 @@ bot.help((ctx) => {
 
 Comandos:
 /menu — Muestra el menú principal
-/cancelar — Cancela la operación actual`, { parse_mode: 'Markdown' });
+/cancelar — Cancela la operación actual
+/24h — Activa el bot fuera de horario (${CONFIG.DURACION_EMERGENCIA} min)
+/cancelar24h — Desactiva el modo emergencia
+
+⏰ *Horario:* ${formatoHorario()}`, { parse_mode: 'Markdown' });
 });
 
 bot.command('menu', (ctx) => {
@@ -150,6 +175,34 @@ bot.command('cancelar', (ctx) => {
     } else {
         ctx.reply('No hay ninguna operación activa.');
     }
+});
+
+bot.command('24h', (ctx) => {
+  if (enModoEmergencia()) {
+    const mins = tiempoRestanteEmergencia();
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return ctx.reply(
+      `⚡ *Modo emergencia ya activo*\n\nQuedan ${h > 0 ? `${h}h ` : ''}${m}min restantes.\n\nPara desactivarlo, usá /cancelar24h`,
+      { parse_mode: 'Markdown' }
+    );
+  }
+  modo24hHasta = Date.now() + CONFIG.DURACION_EMERGENCIA * 60 * 1000;
+  ctx.reply(
+    `🚨 *Modo emergencia activado*\n\nEl bot estará disponible por *${CONFIG.DURACION_EMERGENCIA} minutos* sin límite de horario.\n\nPara desactivarlo antes, usá /cancelar24h`,
+    { parse_mode: 'Markdown' }
+  );
+});
+
+bot.command('cancelar24h', (ctx) => {
+  if (!enModoEmergencia()) {
+    return ctx.reply('El modo emergencia no está activo.', { parse_mode: 'Markdown' });
+  }
+  modo24hHasta = null;
+  ctx.reply(
+    `✅ *Modo emergencia desactivado*\n\nEl bot vuelve a su horario normal: ${formatoHorario()}`,
+    { parse_mode: 'Markdown' }
+  );
 });
 
 // Manejar fotos
@@ -356,7 +409,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 async function autoPing() {
-  if (!estaEnHorario()) return;
+  if (!enModoEmergencia() && !estaEnHorario()) return;
   try {
     await fetch(BOT_URL);
     console.log(`[Keepalive] OK - ${new Date().toLocaleTimeString()}`);
