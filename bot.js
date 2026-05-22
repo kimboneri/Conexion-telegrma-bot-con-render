@@ -94,6 +94,10 @@ bot.use((ctx, next) => {
   if (enModoEmergencia() || estaEnHorario()) {
     return next();
   }
+  const texto = ctx.message?.text || '';
+  if (texto === '/24h' || texto === '/cancelar24h') {
+    return next();
+  }
   const horaApertura = `${CONFIG.ACTIVO_DESDE}:00`;
   return ctx.reply(
     `😴 *Bot fuera de horario*
